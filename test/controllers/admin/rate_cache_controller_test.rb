@@ -62,4 +62,26 @@ class Admin::RateCacheControllerTest < ActionDispatch::IntegrationTest
       assert_match /Sidekiq error/, json_response["error"]
     end
   end
+
+  test "should retry up to 3 times before failing if set_rate raises an error" do
+    call_count = 0
+    RateCacheService.stub :new, -> do
+      mock = Object.new
+      mock.define_singleton_method(:set_rate) do
+        call_count += 1
+        raise StandardError.new("API Error")
+      end
+      mock
+    end do
+      Kernel.stub(:sleep, nil) do
+        post admin_rate_cache_refresh_url, headers: { "Authorization" => "Token #{@admin_token}" }
+      end
+    end
+
+    assert_response :internal_server_error
+    assert_equal 3, call_count
+    
+    json_response = JSON.parse(response.body)
+    assert_match /API Error/, json_response["error"]
+  end
 end
