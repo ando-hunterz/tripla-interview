@@ -14,12 +14,10 @@ class Api::V1::PricingController < ApplicationController
 
     if service.valid?
       render json: { rate: service.result }
+    elsif service.errors.include?('RATE_NOT_FOUND')
+      format_error(code: 'RATE_NOT_FOUND', message: 'Rate not found', status: :not_found)
     else
-      if service.errors.include?('RATE_NOT_FOUND')
-        format_error(code: 'RATE_NOT_FOUND', message: 'Rate not found', status: :not_found)
-      else
-        format_error(code: 'INTERNAL_ERROR', message: service.errors.join(', '))
-      end
+      format_error(code: 'INTERNAL_ERROR', message: service.errors.join(', '))
     end
   rescue StandardError => e
     format_error(code: 'INTERNAL_ERROR', message: e.message, status: :internal_server_error)

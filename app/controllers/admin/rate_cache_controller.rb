@@ -20,7 +20,7 @@ module Admin
           retry
         else
           Rails.logger.error("[Admin::RateCacheController] RateCacheService.set_rate failed after #{MAX_RETRIES} attempts. Error: #{e.message}")
-          raise e
+          raise
         end
       end
 

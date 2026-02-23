@@ -2,7 +2,7 @@ class RateCacheService < BaseService
   CACHE_EXPIRY = 5.minutes.to_i
 
   def initialize
-    @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://redis:6379"))
+    @redis = Redis.new(url: ENV.fetch('REDIS_URL', 'redis://redis:6379'))
   end
 
   def set_rate
@@ -11,7 +11,7 @@ class RateCacheService < BaseService
 
     if response.success?
       rates = response.parsed_response['rates'] || []
-      for rate in rates
+      rates.each do |rate|
         @redis.set("rate.#{rate['period']}.#{rate['hotel']}.#{rate['room']}", rate['rate'], ex: CACHE_EXPIRY)
       end
       Rails.logger.info("[RateCacheService#set_rate] Successfully synced #{rates.size} rates")
