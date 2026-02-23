@@ -31,6 +31,8 @@ docker compose exec interview-dev ./bin/rails test test/controllers/pricing_cont
 docker compose exec interview-dev ./bin/rails test test/controllers/pricing_controller_test.rb -n test_should_get_pricing_with_all_parameters
 ```
 
+
+
 ## Solution description
 
 In this solution, i used the caching strategy to reduce the number of API sent to the `rate-api`. The cache is implemented using a Redis. The caching is done using on a background job, which is implemented using the sidekiq job. the background job will run at boot, then will run periodically every 5 minutes. The sidekiq job will fetch the rates for all the hotels and rooms and store them in the cache. The cache will be used to serve the requests to the `api/v1/pricing` endpoint. The solutions also feature an admin endpoint to reset the cache and the sidekiq jobs, so if something or an update to the rate-api happens, then the admin could cleared the cache.
@@ -64,6 +66,15 @@ User Request Flow
 
 Admin Reset Flow
 ![Admin Reset Flow](./img/Admin%20Reset%20Flow.png)
+
+## Routes
+
+The application has two routes:
+- `GET /api/v1/pricing`: Get the rate for the hotel, use URL Params with these attributes:
+  - `period`: Summer, Autumn, Winter, Spring
+  - `hotel`: FloatingPointResort, GitawayHotel, RecursionRetreat
+  - `room`: SingletonRoom, BooleanTwin, RestfulKing
+- `POST /admin/rate_cache/refresh`: Refresh the rate cache. Use the admin Token `e2c7c1df165336a21e04cd917875f0f` To Authenticate.
 
 ## Repository Architecture
 - `Controllers`
@@ -100,7 +111,25 @@ Testing is framework is using the built in Test in Rails. `SimpleCov` is used to
 
 Test Coverage is ~90%, with the remaining coverage are the files that are not used in the solution (bootstraped files).
 
+Test coverage could be seen by running the 
+```
+./bin/rails test
+```
+
+then open the `coverage/index.html` file in the browser.
+
 ![Test Coverage](./img/Test%20Coverage.png)
+
+## Future Improvements
+
+For future improvements, there would be some improvement to be make:
+- If the rate-api become increasingly large, we could call the `rate-api` with batch of requests. This way we could reduce the amount of request to the api and also reduce the amount of results returned from the `rate-api`. We could also change it to per-request caching if the `rate-api` becoming increasingly large.
+
+- We could also add tracing using some third party service, like datadog, to know which part of the system is taking the most time to process.
+
+- we also could intergrate with the user service, so we could replace the hardcoded user token used by `rate-api` and replace the hardcoded admin token that used in the system with a more robust system.
+
+- We could also add rate-limit to limit the user request, so the user didn't spam both the server and the redis.
 
 ## LLM usage
 The LLM is used to generate some of the tests, and also to help refactor and improve the code to be more readable. LLM is also used for dry run, to check if there's a bug exists or not. The LLM also used to fix the wording on some part of the Readme.MD file
