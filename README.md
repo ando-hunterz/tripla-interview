@@ -1,51 +1,4 @@
-<div align="center">
-   <img src="/img/logo.svg?raw=true" width=600 style="background-color:white;">
-</div>
-
-# Backend Engineering Take-Home Assignment: Dynamic Pricing Proxy
-
-Welcome to the Tripla backend engineering take-home assignment\! 🧑‍💻 This exercise is designed to simulate a real-world problem you might encounter as part of our team.
-
-⚠️ **Before you begin**, please review the main [FAQ](/README.md#frequently-asked-questions). It contains important information, **including our specific guidelines on how to submit your solution.**
-
-## The Challenge
-
-At Tripla, we use a dynamic pricing model for hotel rooms. Instead of static, unchanging rates, our model uses a real-time algorithm to adjust prices based on market demand and other data signals. This helps us maximize both revenue and occupancy.
-
-Our Data and AI team built a powerful model to handle this, but its inference process is computationally expensive to run. To make this product more cost-effective, we analyzed the model's output and found that a calculated room rate remains effective for up to 5 minutes.
-
-This insight presents a great optimization opportunity, and that's where you come in.
-
-## Your Mission
-
-Your mission is to build an efficient service that acts as an intermediary to our dynamic pricing model. This service will be responsible for providing rates to our users while respecting the operational constraints of the expensive model behind it.
-
-You will start with a Ruby on Rails application that is already integrated with our dynamic pricing model. However, the current implementation fetches a new rate for every single request. Your mission is to ensure this service handles the pricing models' constraints.
-
-## Core Requirements
-
-1. Review the pricing model's API and its constraints. The model's docker image and documentation are hosted on dockerhub:  [tripladev/rate-api](https://hub.docker.com/r/tripladev/rate-api).
-
-2. Ensure rate validity. A rate fetched from the pricing model is considered valid for 5 minutes. Your service must ensure that any rate it provides for a given set of parameters (`period`, `hotel`, `room`) is no older than this 5-minute window.
-
-3. Honor throughput requirements. Your solution must be able to handle at least 10,000 requests per day from our users while using a single API token.
-
-## How We'll Evaluate Your Work
-
-This isn't just about getting the right answer. We're excited to see how you approach the problem. Treat this as you would a production-ready feature.
-
-  * We'll be looking for clean, well-structured, and testable code. Feel free to add dependencies or refactor the existing scaffold as you see fit.
-  * How do you decide on your approach to meeting the performance and cost requirements? Documenting your thought process is a great way to share this.
-  * A reliable service anticipates failure. How does your service behave if the pricing model is slow, or returns an error? Providing descriptive error messages to the end-user is a key part of a robust API.
-  * We want to see how you work around constraints and navigate an existing codebase to deliver a solution.
-
-
-## Minimum Deliverables
-
-1.  A link to your Git repository containing the complete solution.
-2.  Clear instructions in the `README.md` on how to build, test, and run your service.
-
-We highly value seeing your thought process. A great submission will also include documentation (e.g., in the `README.md`) discussing the design choices you made. Consider outlining different approaches you considered, their potential tradeoffs, and a clear rationale for why you chose your final solution.
+# Backend Engineering Take-Home Assignment: Dynamic Pricing Proxy By Julando omar
 
 ## Development Environment Setup
 
@@ -78,5 +31,80 @@ docker compose exec interview-dev ./bin/rails test test/controllers/pricing_cont
 docker compose exec interview-dev ./bin/rails test test/controllers/pricing_controller_test.rb -n test_should_get_pricing_with_all_parameters
 ```
 
+## Solution description
 
-Good luck, and we look forward to seeing what you build\!
+In this solution, i used the caching strategy to reduce the number of API sent to the `rate-api`. The cache is implemented using a Redis. The caching is done using on a background job, which is implemented using the sidekiq job. the background job will run at boot, then will run periodically every 5 minutes. The sidekiq job will fetch the rates for all the hotels and rooms and store them in the cache. The cache will be used to serve the requests to the `api/v1/pricing` endpoint. The solutions also feature an admin endpoint to reset the cache and the sidekiq jobs, so if something or an update to the rate-api happens, then the admin could cleared the cache.
+
+## Why using caching
+
+Cache is used because we need to reduce the amount of API calls to the `rate-api` from 10000 request per day to under 1000 request per day. if we use the cache, the request will be around ~288 request per day to the api. 288 request is recieved by multiplying the 60 minutes / 5 minutes = 12 and then we multiply it by 24 hours = 288. 
+
+Caching is also used because of the constraints of the 36 request combinations of the `rate-api`. the 36 request combinations are pretty small to be stored in the redis, so it could be stored and then be updated easily. 
+
+Why we don't cache per request - caching the result after the request is sent to the api. in this case, the constraints are only 36 combinations, so it would be cheaper and efficient to store the whole combination in cache, then caching the request response everytime the user hit the endpoint. the cache per request would be a better solution if the constrains if the combinations are more (>=10k combinations)
+
+The system also return errors instead of stale cache for the pricing system if the rate-api is down or return errors, because i believe the hotel pricing system and pricing is sensitive to customers, so by showing the error instead of previous price, it reduce the confusion between the company and customer.
+
+## Comparison between other solutions
+Some solutions are considered:
+- Caching per request: this solution is not recommended because it would be expensive and inefficient to store the whole combination in cache, then caching the request response everytime the user hit the endpoint. the cache per request would be a better solution if the constrains if the combinations are more (>=10k combinations)
+
+- Caching with stale cache: this solution is not recommended because the stale pricing system could be a problem for the company and customer, so by showing the error instead of previous price, it reduce the confusion between the company and customer.
+
+- In system memory: this solution is not recommended because the data will be reset on server restart, and it would be more difficult to implement and maintain.
+
+- RDBMS: this solution is not recommended because we don't need the relational database, and RDBMS is more suitable to store more complex data and unchangeable data, in this case the data is will be replaced after 5 minutes, so it's better to use redis in this case.
+
+## Flow Diagrams
+Caching Warming Strategy
+![Caching Warming Strategy](./img/Caching%20Strategy.png)
+
+User Request Flow
+![User Request Flow](./img/User%20Request%20Flow.png)
+
+Admin Reset Flow
+![Admin Reset Flow](./img/Admin%20Reset%20Flow.png)
+
+## Repository Architecture
+- `Controllers`
+  - `Api::V1::PricingController`: Handles the main API function from customers (`GET /api/v1/pricing`). Interfacing between the user and the `RateCacheService` service
+  - `Admin::RateCacheController`: Handle the admin endpint (`POST /admin/rate_cache/refresh`). Interfacing between the admin and the `RateCacheService` service
+
+- `Services`
+  - `Api::V1::PricingService`: Handles the pricing service. Calling the `get_rate` method from the `RateCacheService` service.
+  - `RateCacheService`: Handles the rate cache service. Interfacing between the `RateCacheWorker` worker and the `RateApiClient` client. Consist of the `set_rate` and `get_rate` methods.
+    - `set_rate`: set the rate in the cache
+    - `get_rate`: get the rate from the cache
+
+- `Workers`
+  - `RateCacheWorker`: Handles the rate cache worker. Main job to call the `RateCacheService` method and save to the redis.
+
+- `Clients`
+  - `RateApiClient`: Handles the rate api client.
+
+## Resilience & Error Handling
+
+To ensure high availability and stability, the system incorporates comprehensive error handling mechanisms:
+- **Graceful Degradation**: If the `rate-api` is down or returns errors during the periodic background sync, the system logs the error and gracefully halts that specific job run. Sidekiq's retry functionality would attempt to recover. Meanwhile, the `PricingController` will continue serving the stale/last-known prices from Redis until they expire or are successfully refreshed.
+- **API Fault Tolerance**: If the `PricingController` encounters an internal failure (e.g. Redis becomes unreachable), the overarching controller rescue blocks intercept the `StandardError` and gracefully respond with a `400 Bad Request` or `500 Internal Server Error` containing an `INTERNAL_ERROR` payload. This prevents raw stack traces from bleeding to the end-users.
+
+## Testing Strategy
+
+The solution relies on a test-driven approach to ensure correct functionality:
+- **Service Tests (`RateCacheServiceTest`)**: Verify that caching writes all expected elements to Redis and correctly identifies internal failures or missing combinations without breaking.
+- **Controller Tests (`PricingControllerTest`)**: Test bounds, parameter validation, edge-cases, and confirm the exact error structures are returned upon missing entries (`RATE_NOT_FOUND`) or deep system issues (`INTERNAL_ERROR`).
+- **Worker/Client Tests (`RateCacheWorkerTest`, `RateApiClientTest`)**: Ensure that the Sidekiq tasks schedule accurately and API clients form proper HTTP requests and handle downtime effectively.
+
+## Test Coverage
+Testing is framework is using the built in Test in Rails. `SimpleCov` is used to measure the test coverage.
+
+Test Coverage is 90%, with the remaining coverage are the files that are not used in the solution (bootstraped files).
+
+![Test Coverage](./img/Test%20Coverage.png)
+
+## LLM usage
+The LLM is used to generate some of the tests, and also to help refactor and improve the code to be more readable. LLM is also used for dry run, to check if there's a bug exists or not. The LLM also used to fix the wording on some part of the Readme.MD file
+
+Tools used are gemini and AntiGravity.
+
+
