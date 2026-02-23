@@ -48,4 +48,30 @@ class RateCacheServiceTest < ActiveSupport::TestCase
     @redis_mock.verify
   end
 
+  test "set_rate should log error when API call fails" do
+    mock_response = Minitest::Mock.new
+    mock_response.expect :success?, false
+    mock_response.expect :code, 500
+    mock_response.expect :message, "Internal Server Error"
+
+    RateApiClient.stub :get_all_rate, mock_response do
+      # Expect logger to receive error
+      Rails.logger.stub :error, nil do
+        @service.set_rate
+      end
+      
+      mock_response.verify
+    end
+  end
+
+  test "set_rate should log and re-raise StandardError" do
+    RateApiClient.stub :get_all_rate, -> { raise StandardError.new("API failure") } do
+      # Expect logger to receive error
+      Rails.logger.stub :error, nil do
+        assert_raises StandardError do
+          @service.set_rate
+        end
+      end
+    end
+  end
 end

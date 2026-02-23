@@ -1,4 +1,5 @@
 require "test_helper"
+require "sidekiq/api"
 
 class RateCacheWorkerTest < ActiveSupport::TestCase
   def setup
