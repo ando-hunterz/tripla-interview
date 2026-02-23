@@ -15,11 +15,11 @@ module Api::V1
       if rate
         @result = rate
       else
-        Rails.logger.info("[Api::V1::PricingService] Pricing Result for #{@period}.#{@hotel}.#{@room}: #{rate}")
+        Rails.logger.info("[Api::V1::PricingService] Pricing Result for #{@period}.#{@hotel}.#{@room}: #{rate} Not Found")
         errors << "RATE_NOT_FOUND"
       end
     rescue StandardError => e
-      Rails.logger.info("[Api::V1::PricingService] Pricing Result for #{@period}.#{@hotel}.#{@room}: #{rate}")
+      Rails.logger.info("[Api::V1::PricingService] Error Result for #{@period}.#{@hotel}.#{@room}: #{e.message}")
       errors << e.message
     end
   end
