@@ -25,11 +25,10 @@ class RateCacheService < BaseService
 
   def get_rate(period, hotel, room)
     Rails.logger.info("[RateCacheService.get_rate] Lookup: #{period}.#{hotel}.#{room}")
-    
     @redis.get("rate.#{period}.#{hotel}.#{room}")
   rescue StandardError => e
     Rails.logger.error("[RateCacheService.get_rate] #{e.class}: #{e.message}")
-    nil
+    raise
   end
 
 end

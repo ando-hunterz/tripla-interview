@@ -35,4 +35,12 @@ class RateApiClientTest < ActiveSupport::TestCase
       end
     end
   end
+
+  test "get_all_rate should handle errors" do
+    RateApiClient.stub :post, ->(_url, _options) { raise StandardError.new("API Down") } do
+      assert_raises StandardError do
+        RateApiClient.get_all_rate
+      end
+    end
+  end
 end

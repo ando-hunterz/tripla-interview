@@ -30,6 +30,52 @@ class RateCacheServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "set_rate should process multiple rates and store them in redis" do
+    mock_response = Minitest::Mock.new
+    mock_response.expect :success?, true
+    mock_response.expect :parsed_response, {
+      "rates" => [
+        { "period" => "Summer", "hotel" => "FloatingPointResort", "room" => "BooleanTwin", "rate" => 100 },
+        { "period" => "Winter", "hotel" => "IceHotel", "room" => "Igloo", "rate" => 200 }
+      ]
+    }
+
+    RateApiClient.stub :get_all_rate, mock_response do
+      @redis_mock.expect :set, "OK" do |key, value, options|
+        key == "rate.Summer.FloatingPointResort.BooleanTwin" && value == 100 && options == { ex: RateCacheService::CACHE_EXPIRY }
+      end
+      @redis_mock.expect :set, "OK" do |key, value, options|
+        key == "rate.Winter.IceHotel.Igloo" && value == 200 && options == { ex: RateCacheService::CACHE_EXPIRY }
+      end
+      
+      @service.set_rate
+      
+      @redis_mock.verify
+    end
+  end
+
+  test "set_rate should handle empty rates gracefully" do
+    mock_response = Minitest::Mock.new
+    mock_response.expect :success?, true
+    mock_response.expect :parsed_response, { "rates" => [] }
+
+    RateApiClient.stub :get_all_rate, mock_response do
+      @service.set_rate
+      @redis_mock.verify # Expecting no calls to redis.set
+    end
+  end
+
+  test "set_rate should handle nil rates gracefully" do
+    mock_response = Minitest::Mock.new
+    mock_response.expect :success?, true
+    mock_response.expect :parsed_response, {}
+
+    RateApiClient.stub :get_all_rate, mock_response do
+      @service.set_rate
+      @redis_mock.verify # Expecting no calls to redis.set
+    end
+  end
+
   test "get_rate should fetch rate from redis" do
     @redis_mock.expect :get, "150", ["rate.Summer.FloatingPointResort.BooleanTwin"]
     
@@ -73,5 +119,22 @@ class RateCacheServiceTest < ActiveSupport::TestCase
         end
       end
     end
+  end
+
+  test "get_rate should fail if standardError" do
+    @redis_mock.expect :get, nil do |key|
+      raise StandardError.new("Redis error") if key == "rate.Summer.FloatingPointResort.BooleanTwin"
+    end
+    
+    logged_message = nil
+    Rails.logger.stub :error, ->(msg) { logged_message = msg } do
+      assert_raises StandardError do
+        @service.get_rate("Summer", "FloatingPointResort", "BooleanTwin")
+      end
+    end
+
+    assert_not_nil logged_message
+    assert_match /Redis error/, logged_message
+    @redis_mock.verify
   end
 end

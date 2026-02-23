@@ -43,6 +43,39 @@ class Api::V1::PricingControllerTest < ActionDispatch::IntegrationTest
     mock_cache.verify
   end
 
+  test "should return error when PricingService Error" do
+    RateCacheService.stub :new, -> { raise StandardError.new("Redis connection error") } do
+      get api_v1_pricing_url, params: {
+        period: "Summer",
+        hotel: "FloatingPointResort",
+        room: "SingletonRoom"
+      }
+
+      assert_response :bad_request
+      assert_equal "application/json", @response.media_type
+
+      json_response = JSON.parse(@response.body)
+      assert_equal "INTERNAL_ERROR", json_response["error"]["code"]
+      assert_match /Redis connection error/, json_response["error"]["message"]
+    end
+  end
+
+  test "should return error when controller error" do
+    Api::V1::PricingService.stub :new, ->(params) { raise StandardError.new("Controller crash") } do
+      get api_v1_pricing_url, params: {
+        period: "Summer",
+        hotel: "FloatingPointResort",
+        room: "SingletonRoom"
+      }
+
+      assert_response :internal_server_error
+      assert_equal "application/json", @response.media_type
+
+      json_response = JSON.parse(@response.body)
+      assert_equal "INTERNAL_ERROR", json_response["error"]["code"]
+      assert_equal "Controller crash", json_response["error"]["message"]
+    end
+  end
 
 
   test "should return error without any parameters" do
