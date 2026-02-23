@@ -18,6 +18,7 @@ services:
     environment:
       - RATE_API_URL=http://rate-api:8080
       - REDIS_URL=redis://redis:6379
+      - ADMIN_TOKEN=ce2c7c1df165336a21e04cd917875f0f
     depends_on:
       - rate-api
       - redis

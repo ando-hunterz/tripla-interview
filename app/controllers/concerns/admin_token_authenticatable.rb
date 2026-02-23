@@ -15,6 +15,6 @@ module AdminTokenAuthenticatable
   end
 
   def admin_token
-    ENV.fetch("ADMIN_TOKEN", "secret-token")
+    ENV.fetch("ADMIN_TOKEN", "ce2c7c1df165336a21e04cd917875f0f")
   end
 end
