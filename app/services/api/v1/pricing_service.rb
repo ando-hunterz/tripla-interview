@@ -7,14 +7,16 @@ module Api::V1
     end
 
     def run
-      # TODO: Start to implement here
-      rate = RateApiClient.get_rate(period: @period, hotel: @hotel, room: @room)
-      if rate.success?
-        parsed_rate = JSON.parse(rate.body)
-        @result = parsed_rate['rates'].detect { |r| r['period'] == @period && r['hotel'] == @hotel && r['room'] == @room }&.dig('rate')
+      rate_cache_service = RateCacheService.new
+      rate = rate_cache_service.get_rate(@period, @hotel, @room)
+
+      if rate
+        @result = rate
       else
-        errors << rate.body['error']
+        errors << "RATE_NOT_FOUND"
       end
+    rescue StandardError => e
+      errors << e.message
     end
   end
 end
