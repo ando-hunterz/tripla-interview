@@ -5,13 +5,16 @@ module Admin
     include AdminTokenAuthenticatable
 
     def refresh
+      Rails.logger.info("[Admin::RateCacheController] Begin Resetting Rate Cache")
       # Reset the Queue
       Sidekiq::Queue.new.clear
       Sidekiq::ScheduledSet.new.clear
       Sidekiq::RetrySet.new.clear
       
+      Rails.logger.info("[Admin::RateCacheController] Sidekiq queues cleared, Now Reseting Rate Cache")
       RateCacheService.new.set_rate
       
+      Rails.logger.info("[Admin::RateCacheController] Rate Cache Reset, Scheduling Next Run")
       RateCacheWorker.perform_in(5.minutes)
       render json: { message: "Rate cache refreshed and Sidekiq queues cleared" }, status: :ok
     rescue StandardError => e

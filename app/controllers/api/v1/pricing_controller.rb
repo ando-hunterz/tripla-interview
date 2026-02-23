@@ -8,6 +8,7 @@ class Api::V1::PricingController < ApplicationController
     hotel  = params[:hotel]
     room   = params[:room]
 
+    Rails.logger.info("[Api::V1::PricingController] Request for pricing for: #{period}.#{hotel}.#{room}")
     service = Api::V1::PricingService.new(period:, hotel:, room:)
     service.run
 

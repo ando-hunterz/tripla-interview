@@ -98,7 +98,7 @@ The solution relies on a test-driven approach to ensure correct functionality:
 ## Test Coverage
 Testing is framework is using the built in Test in Rails. `SimpleCov` is used to measure the test coverage.
 
-Test Coverage is 90%, with the remaining coverage are the files that are not used in the solution (bootstraped files).
+Test Coverage is ~90%, with the remaining coverage are the files that are not used in the solution (bootstraped files).
 
 ![Test Coverage](./img/Test%20Coverage.png)
 
