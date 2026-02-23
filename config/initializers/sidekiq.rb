@@ -7,7 +7,7 @@ Sidekiq.configure_server do |config|
 
   # 3 seconds waiting time, as we need to wait for the api to startup
   config.on(:startup) do
-    RateCacheWorker.perform_in(3.seconds)
+    RateCacheWorker.perform_async
   end
 end
 
