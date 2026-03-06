@@ -92,7 +92,7 @@ The application has two routes:
 - `Workers`
   - `RateCacheWorker`: Handles the rate cache worker. Main job to call the `RateCacheService` method and save to the redis.
 
-- `Clients`
+- `Clients (Lib)`
   - `RateApiClient`: Handles the rate api client.
 
 ## Resilience & Error Handling
